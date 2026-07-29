@@ -66,7 +66,7 @@ async function loadNotes(){
       </div>
       <div class="note-actions">
         <button class="btn btn-ghost" data-edit="${n.id}" data-content="${escapeHtml(n.content)}">Edit</button>
-        <button class="btn btn-ghost" data-delete="${n.id}">Delete</button>
+        <button class="btn btn-ghost btn-delete-inline" data-delete="${n.id}">Delete</button>
       </div>
     </li>
   `).join("");

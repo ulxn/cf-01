@@ -53,8 +53,13 @@ body{
 .btn-ghost{ background:transparent; }
 .btn-danger{ background:var(--danger); color:#fff; border-color:var(--danger); }
 
-.btn-delete-inline{ color:var(--danger); border-color:var(--danger); }
-.btn-delete-inline:hover{ opacity:.75; }
+.btn-delete-inline{
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+  opacity: .9;
+}
+.btn-delete-inline:hover{ opacity:.85; }
 
 .spinner{
   width:13px; height:13px; border-radius:50%;

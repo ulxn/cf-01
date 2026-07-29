@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Notes App</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 40px auto; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    td, th { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    input { padding: 8px; width: 70%; }
+    button { padding: 8px 12px; }
+  </style>
+</head>
+<body>
+  <h1>Notes</h1>
+
+  <input type="text" id="noteInput" maxlength="100" placeholder="Write a note...">
+  <button id="addBtn">Add</button>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Content</th>
+        <th>Created At</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="notesTableBody">
+      <!-- rows will be inserted here by JS -->
+    </tbody>
+  </table>
+
+  <script src="app.js"></script>
+</body>
+</html>

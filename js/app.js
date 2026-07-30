@@ -3,6 +3,7 @@ const API_URL = "https://notes-backend.ulxn.workers.dev";
 const listEl = document.getElementById("notesList");
 const emptyEl = document.getElementById("emptyState");
 const inputEl = document.getElementById("noteInput");
+const imageInput = document.getElementById("imageInput");
 const charCountEl = document.getElementById("charCount");
 const addBtn = document.getElementById("addBtn");
 const themeBtn = document.getElementById("themeToggle");
@@ -23,7 +24,7 @@ let deletingId = null;
 
 document.getElementById("year").textContent = new Date().getFullYear();
 
-function applyTheme(theme){
+function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
   themeBtn.querySelector(".theme-icon").textContent = theme === "dark" ? "☀️" : "🌙";
   localStorage.setItem("theme", theme);
@@ -33,27 +34,27 @@ themeBtn.addEventListener("click", () => {
   applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
 });
 
-function showToast(msg){
+function showToast(msg) {
   toastEl.textContent = msg;
   toastEl.hidden = false;
   clearTimeout(showToast._t);
   showToast._t = setTimeout(() => { toastEl.hidden = true; }, 2200);
 }
 
-function setLoading(btn, loading){
+function setLoading(btn, loading) {
   btn.disabled = loading;
   btn.querySelector(".btn-label").style.visibility = loading ? "hidden" : "visible";
   btn.querySelector(".spinner").hidden = !loading;
 }
 
-function escapeHtml(str){
-  return str.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function escapeHtml(str) {
+  return str.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
 inputEl.addEventListener("input", () => { charCountEl.textContent = inputEl.value.length; });
 editInput.addEventListener("input", () => { editCharCount.textContent = editInput.value.length; });
 
-async function loadNotes(){
+async function loadNotes() {
   const res = await fetch(API_URL);
   const notes = await res.json();
 
@@ -61,6 +62,7 @@ async function loadNotes(){
   listEl.innerHTML = notes.map(n => `
     <li class="note-card">
       <div>
+        ${n.image_key ? `<img src="${API_URL}/image/${n.image_key}" class="note-img" alt="">` : ""}
         <div class="note-content">${escapeHtml(n.content)}</div>
         <div class="note-meta">${n.created_at}</div>
       </div>
@@ -74,21 +76,35 @@ async function loadNotes(){
 
 addBtn.addEventListener("click", async () => {
   const content = inputEl.value.trim();
+  const imageFile = imageInput.files[0];
   if (!content) return;
+
   setLoading(addBtn, true);
-  try{
+  try {
+    let image_key = null;
+
+    if (imageFile) {
+      const formData = new FormData();
+      formData.append("image", imageFile);
+      const uploadRes = await fetch(`${API_URL}/upload`, { method: "POST", body: formData });
+      const uploadData = await uploadRes.json();
+      image_key = uploadData.key;
+    }
+
     await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, image_key }),
     });
+
     inputEl.value = "";
+    imageInput.value = "";
     charCountEl.textContent = "0";
     await loadNotes();
     showToast("Note added");
-  } catch{
+  } catch {
     showToast("Something went wrong");
-  } finally{
+  } finally {
     setLoading(addBtn, false);
   }
 });
@@ -98,14 +114,14 @@ listEl.addEventListener("click", (e) => {
   const editId = e.target.dataset.edit;
   const delId = e.target.dataset.delete;
 
-  if (editId){
+  if (editId) {
     editingId = editId;
     editInput.value = e.target.dataset.content;
     editCharCount.textContent = editInput.value.length;
     editModal.hidden = false;
     editInput.focus();
   }
-  if (delId){
+  if (delId) {
     deletingId = delId;
     confirmModal.hidden = false;
   }
@@ -118,7 +134,7 @@ editSave.addEventListener("click", async () => {
   const trimmed = editInput.value.trim();
   if (!trimmed) return;
   setLoading(editSave, true);
-  try{
+  try {
     await fetch(`${API_URL}/notes/${editingId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -127,9 +143,9 @@ editSave.addEventListener("click", async () => {
     editModal.hidden = true;
     await loadNotes();
     showToast("Note updated");
-  } catch{
+  } catch {
     showToast("Something went wrong");
-  } finally{
+  } finally {
     setLoading(editSave, false);
   }
 });
@@ -139,14 +155,14 @@ confirmModal.addEventListener("click", (e) => { if (e.target === confirmModal) c
 
 confirmDelete.addEventListener("click", async () => {
   setLoading(confirmDelete, true);
-  try{
+  try {
     await fetch(`${API_URL}/notes/${deletingId}`, { method: "DELETE" });
     confirmModal.hidden = true;
     await loadNotes();
     showToast("Note deleted");
-  } catch{
+  } catch {
     showToast("Something went wrong");
-  } finally{
+  } finally {
     setLoading(confirmDelete, false);
   }
 });

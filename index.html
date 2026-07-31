@@ -23,21 +23,43 @@
 
 <main class="wrap">
   <section class="composer">
-    <input id="noteInput" class="input" type="text" maxlength="100" placeholder="Write a note...">
-    <button id="addBtn" class="btn btn-primary">
-      <span class="btn-label">Add</span>
-      <span class="spinner" hidden></span>
-    </button>
+    <div class="textarea-wrap">
+      <textarea id="noteInput" class="input" maxlength="100" rows="2" placeholder="Write a note…"></textarea>
+      <span id="charCount" class="counter-inline">0/100</span>
+    </div>
+    <div class="composer-actions">
+      <input id="imageInput" type="file" accept="image/*" hidden>
+      <button id="imageBtn" class="btn btn-icon" aria-label="Add image" title="Add image">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      </button>
+      <button id="addBtn" class="btn btn-primary">
+        <span class="btn-label">Add</span>
+        <span class="spinner" hidden></span>
+      </button>
+    </div>
   </section>
-  <div class="file-row">
-    <input id="imageInput" type="file" accept="image/*" class="file-input">
+
+  <div class="toolbar">
+    <div class="search-wrap">
+      <input id="searchInput" class="input search-input" type="text" maxlength="200" placeholder="Search notes…">
+      <button id="searchClear" class="search-clear" hidden aria-label="Clear search">&times;</button>
+    </div>
+    <select id="filterSelect" class="select-filter">
+      <option value="newest">Newest</option>
+      <option value="oldest">Oldest</option>
+      <option value="with-image">With image</option>
+      <option value="text-only">Text only</option>
+    </select>
   </div>
-  <div class="counter"><span id="charCount">0</span> / 100</div>
+
+  <div class="pagination" id="paginationTop"></div>
 
   <section aria-live="polite">
     <div id="emptyState" class="empty">No notes yet — add your first one above.</div>
     <ul id="notesList" class="notes-list"></ul>
   </section>
+
+  <div class="pagination" id="paginationBottom"></div>
 </main>
 
 <footer class="footer">
@@ -46,15 +68,42 @@
     <a href="https://github.com/ulxn/cf-01" class="footer-link" target="_blank" rel="noopener noreferrer">
       ulxn's Notes
     </a>
-    • v1.2.0 · Cloudflare Workers + D1 + R2
+    • v1.3.0 · Cloudflare Workers + D1 + R2
   </p>
 </footer>
 
+<!-- Note detail modal -->
+<div id="detailModal" class="modal-overlay" hidden>
+  <div class="modal modal-lg" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+    <button id="detailClose" class="modal-close" aria-label="Close">&times;</button>
+    <img id="detailImage" class="detail-image" alt="" hidden>
+    <div id="detailContent" class="detail-content"></div>
+    <div id="detailMeta" class="detail-meta"></div>
+    <div class="detail-actions">
+      <button id="detailEdit" class="btn btn-ghost">Edit</button>
+      <button id="detailHistory" class="btn-history-emoji" title="History" aria-label="View history">📋</button>
+      <button id="detailDelete" class="btn btn-ghost btn-delete-inline">Delete</button>
+    </div>
+    <div id="detailHistoryPanel" class="history-panel" hidden></div>
+  </div>
+</div>
+
+<!-- Image preview modal -->
+<div id="imageModal" class="modal-overlay" hidden>
+  <div class="modal modal-lg" role="dialog" aria-modal="true" aria-labelledby="imageModalTitle">
+    <button id="imageModalClose" class="modal-close" aria-label="Close">&times;</button>
+    <img id="imageModalImg" class="modal-image" alt="">
+    <div id="imageModalNote" class="modal-note-content"></div>
+    <div id="imageModalMeta" class="modal-note-meta"></div>
+  </div>
+</div>
+
+<!-- Edit modal -->
 <div id="editModal" class="modal-overlay" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="editTitle">
     <h2 id="editTitle" class="modal-title">Edit note</h2>
     <textarea id="editInput" class="textarea" maxlength="100" rows="4"></textarea>
-    <div class="counter"><span id="editCharCount">0</span> / 100</div>
+    <span id="editCharCount" class="counter-inline" style="text-align:right;display:block;margin-top:2px">0/100</span>
     <div class="modal-actions">
       <button id="editCancel" class="btn btn-ghost">Cancel</button>
       <button id="editSave" class="btn btn-primary">
@@ -65,6 +114,7 @@
   </div>
 </div>
 
+<!-- Confirm delete modal -->
 <div id="confirmModal" class="modal-overlay" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
     <h2 id="confirmTitle" class="modal-title">Delete this note?</h2>
@@ -75,6 +125,17 @@
         <span class="btn-label">Delete</span>
         <span class="spinner" hidden></span>
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- History modal -->
+<div id="historyModal" class="modal-overlay" hidden>
+  <div class="modal modal-lg" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+    <h2 id="historyTitle" class="modal-title">Edit History</h2>
+    <div id="historyList" class="history-list"></div>
+    <div class="modal-actions">
+      <button id="historyClose" class="btn btn-ghost">Close</button>
     </div>
   </div>
 </div>

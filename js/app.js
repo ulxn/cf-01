@@ -22,6 +22,12 @@ const confirmCancel = document.getElementById("confirmCancel");
 let editingId = null;
 let deletingId = null;
 
+// Pagination state
+let currentOffset = 0;
+const LIMIT = 10; // notes per page
+let hasMore = true;
+let isLoading = false;
+
 document.getElementById("year").textContent = new Date().getFullYear();
 
 function applyTheme(theme) {
@@ -47,22 +53,13 @@ function setLoading(btn, loading) {
   btn.querySelector(".spinner").hidden = !loading;
 }
 
-/**
- * Encodes HTML special characters to prevent XSS.
- * Currently encodes &, <, >, ", ' to their entity equivalents.
- * If you later add more (e.g., © → &copy;), the decoder below will handle them automatically.
- */
 function escapeHtml(str) {
   return str.replace(/[&<>"']/g, c =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
   );
 }
 
-/**
- * Decodes any HTML entities produced by escapeHtml (and any other future ones).
- * Uses a single hidden <textarea> – safe because we only feed it escaped strings.
- * Fast because the textarea is reused.
- */
+// Reusable decoder – handles any HTML entity automatically
 const decoder = document.createElement("textarea");
 decoder.style.display = "none";
 document.body.appendChild(decoder);
@@ -75,26 +72,85 @@ function unescapeHtml(str) {
 inputEl.addEventListener("input", () => { charCountEl.textContent = inputEl.value.length; });
 editInput.addEventListener("input", () => { editCharCount.textContent = editInput.value.length; });
 
-async function loadNotes() {
-  const res = await fetch(API_URL);
-  const notes = await res.json();
+// Load a page of notes (appends to list)
+async function loadNotes(append = false) {
+  if (isLoading) return;
+  if (!append) {
+    // Reset pagination for fresh load
+    currentOffset = 0;
+    hasMore = true;
+    listEl.innerHTML = "";
+  }
+  if (!hasMore && append) return;
 
-  emptyEl.style.display = notes.length ? "none" : "block";
-  listEl.innerHTML = notes.map(n => `
-    <li class="note-card">
-      <div>
-        ${n.image_key ? `<img src="${API_URL}/image/${n.image_key}" class="note-img" alt="">` : ""}
-        <div class="note-content">${escapeHtml(n.content)}</div>
-        <div class="note-meta">${n.created_at}</div>
-      </div>
-      <div class="note-actions">
-        <button class="btn btn-ghost" data-edit="${n.id}" data-content="${escapeHtml(n.content)}">Edit</button>
-        <button class="btn btn-ghost btn-delete-inline" data-delete="${n.id}">Delete</button>
-      </div>
-    </li>
-  `).join("");
+  isLoading = true;
+  try {
+    const url = `${API_URL}?limit=${LIMIT}&offset=${currentOffset}`;
+    const res = await fetch(url);
+    const json = await res.json();
+
+    const notes = json.data || [];
+    const pagination = json.pagination || {};
+
+    if (notes.length === 0 && currentOffset === 0) {
+      emptyEl.style.display = "block";
+      listEl.innerHTML = "";
+    } else {
+      emptyEl.style.display = "none";
+    }
+
+    // Render notes (append or replace)
+    const html = notes.map(n => `
+      <li class="note-card">
+        <div>
+          ${n.image_key ? `<img src="${API_URL}/image/${n.image_key}" class="note-img" alt="">` : ""}
+          <div class="note-content">${escapeHtml(n.content)}</div>
+          <div class="note-meta">${n.created_at}</div>
+        </div>
+        <div class="note-actions">
+          <button class="btn btn-ghost" data-edit="${n.id}" data-content="${escapeHtml(n.content)}">Edit</button>
+          <button class="btn btn-ghost btn-delete-inline" data-delete="${n.id}">Delete</button>
+        </div>
+      </li>
+    `).join("");
+
+    if (append) {
+      listEl.insertAdjacentHTML("beforeend", html);
+    } else {
+      listEl.innerHTML = html;
+    }
+
+    // Update pagination state
+    currentOffset += notes.length;
+    hasMore = pagination.hasMore || false;
+
+    // Show/hide "Load more" button
+    updateLoadMoreButton();
+  } catch (err) {
+    showToast("Failed to load notes");
+  } finally {
+    isLoading = false;
+  }
 }
 
+// Helper to add a "Load more" button if needed
+function updateLoadMoreButton() {
+  const existing = document.getElementById("loadMoreBtn");
+  if (hasMore) {
+    if (!existing) {
+      const btn = document.createElement("button");
+      btn.id = "loadMoreBtn";
+      btn.className = "btn btn-ghost";
+      btn.textContent = "Load more";
+      btn.addEventListener("click", () => loadNotes(true));
+      listEl.parentNode.appendChild(btn);
+    }
+  } else {
+    if (existing) existing.remove();
+  }
+}
+
+// Add note
 addBtn.addEventListener("click", async () => {
   const content = inputEl.value.trim();
   const imageFile = imageInput.files[0];
@@ -121,7 +177,8 @@ addBtn.addEventListener("click", async () => {
     inputEl.value = "";
     imageInput.value = "";
     charCountEl.textContent = "0";
-    await loadNotes();
+    // Reload from beginning (fresh)
+    await loadNotes(false);
     showToast("Note added");
   } catch {
     showToast("Something went wrong");
@@ -131,13 +188,13 @@ addBtn.addEventListener("click", async () => {
 });
 inputEl.addEventListener("keydown", e => { if (e.key === "Enter") addBtn.click(); });
 
+// Edit / Delete click delegation
 listEl.addEventListener("click", (e) => {
   const editId = e.target.dataset.edit;
   const delId = e.target.dataset.delete;
 
   if (editId) {
     editingId = editId;
-    // Decode automatically via DOM
     editInput.value = unescapeHtml(e.target.dataset.content);
     editCharCount.textContent = editInput.value.length;
     editModal.hidden = false;
@@ -163,7 +220,7 @@ editSave.addEventListener("click", async () => {
       body: JSON.stringify({ content: trimmed }),
     });
     editModal.hidden = true;
-    await loadNotes();
+    await loadNotes(false);
     showToast("Note updated");
   } catch {
     showToast("Something went wrong");
@@ -180,7 +237,7 @@ confirmDelete.addEventListener("click", async () => {
   try {
     await fetch(`${API_URL}/notes/${deletingId}`, { method: "DELETE" });
     confirmModal.hidden = true;
-    await loadNotes();
+    await loadNotes(false);
     showToast("Note deleted");
   } catch {
     showToast("Something went wrong");
@@ -189,4 +246,5 @@ confirmDelete.addEventListener("click", async () => {
   }
 });
 
-loadNotes();
+// Initial load
+loadNotes(false);

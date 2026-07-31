@@ -47,8 +47,29 @@ function setLoading(btn, loading) {
   btn.querySelector(".spinner").hidden = !loading;
 }
 
+/**
+ * Encodes HTML special characters to prevent XSS.
+ * Currently encodes &, <, >, ", ' to their entity equivalents.
+ * If you later add more (e.g., © → &copy;), the decoder below will handle them automatically.
+ */
 function escapeHtml(str) {
-  return str.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  return str.replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+  );
+}
+
+/**
+ * Decodes any HTML entities produced by escapeHtml (and any other future ones).
+ * Uses a single hidden <textarea> – safe because we only feed it escaped strings.
+ * Fast because the textarea is reused.
+ */
+const decoder = document.createElement("textarea");
+decoder.style.display = "none";
+document.body.appendChild(decoder);
+
+function unescapeHtml(str) {
+  decoder.innerHTML = str;
+  return decoder.value;
 }
 
 inputEl.addEventListener("input", () => { charCountEl.textContent = inputEl.value.length; });
@@ -116,7 +137,8 @@ listEl.addEventListener("click", (e) => {
 
   if (editId) {
     editingId = editId;
-    editInput.value = e.target.dataset.content;
+    // Decode automatically via DOM
+    editInput.value = unescapeHtml(e.target.dataset.content);
     editCharCount.textContent = editInput.value.length;
     editModal.hidden = false;
     editInput.focus();
